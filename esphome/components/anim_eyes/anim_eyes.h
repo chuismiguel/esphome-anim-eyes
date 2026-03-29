@@ -42,7 +42,6 @@ class AnimEyes : public Component {
   
   // Setup and lifecycle
   void setup() override;
-  void update() override;
   void dump_config() override;
   
   // Display configuration
@@ -91,6 +90,9 @@ class AnimEyes : public Component {
   void draw_eye_(int center_x, int center_y);
   void draw_eyes();
   void clear_display();
+  
+  // Animation update callback
+  void animate_();
   
  protected:
   // Display reference

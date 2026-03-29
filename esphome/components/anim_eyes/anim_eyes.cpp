@@ -45,20 +45,15 @@ void AnimEyes::setup() {
   state_.last_blink_time = 0;
   state_.last_look_time = 0;
   state_.last_behavior_time = 0;
+  
+  // Register periodic animation callback
+  set_interval("anim_eyes", update_interval_ms_, [this]() { animate_(); });
 }
 
-void AnimEyes::update() {
+void AnimEyes::animate_() {
   if (display_ == nullptr) {
     return;
   }
-  
-  uint32_t now = esp_timer_get_time() / 1000;  // Convert microseconds to milliseconds
-  
-  // Check if it's time to update (respecting update_interval_ms)
-  if (now - last_update_time_ < update_interval_ms_) {
-    return;
-  }
-  last_update_time_ = now;
   
   // Update animation states
   update_animation_state_();

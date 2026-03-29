@@ -137,7 +137,7 @@ void AnimEyes::trigger_behavior_change() {
 }
 
 
-void AnimEyes::draw_eye_(int center_x, int center_y) {
+void draw_eye_(int center_x, int center_y) {
   if (display_ == nullptr) {
     return;
   }

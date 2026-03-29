@@ -42,6 +42,8 @@ void AnimEyes::setup() {
   state_.look_y = 0.0f;
   state_.is_blinking = false;
   state_.blink_progress = 0;
+  state_.eyelid_top = 1.0f;
+  state_.eyelid_bottom = 1.0f;
   state_.last_blink_time = 0;
   state_.last_look_time = 0;
   state_.last_behavior_time = 0;
@@ -132,37 +134,49 @@ void AnimEyes::trigger_behavior_change() {
 }
 
 
-void AnimEyes::draw_eye_(int center_x, int center_y) {
+void AnimEyes::draw_eye_(const EyeShape &eye) {
   if (display_ == nullptr) {
     return;
   }
   
-  // Draw eye white (circle)
-  display_->filled_circle(center_x, center_y, eye_size_ / 2, display::COLOR_ON);
+  // Draw eye white background (rounded rectangle)
+  draw_rounded_rectangle_(eye.center_x - eye.width / 2, 
+                         eye.center_y - eye.height / 2,
+                         eye.width, eye.height,
+                         eye.border_radius,
+                         display::COLOR_ON, true);
   
-  // Calculate pupil position based on look direction
-  int pupil_x = center_x + (state_.look_x * (eye_size_ / 4));
-  int pupil_y = center_y + (state_.look_y * (eye_size_ / 4));
+  // Apply eyelid effect (upper and lower eyelids closing in during blink)
+  float eyelid_top_pos = eye.border_radius + (eye.height / 2 - eye.border_radius) * (1.0f - state_.eyelid_top);
+  float eyelid_bottom_pos = eye.border_radius + (eye.height / 2 - eye.border_radius) * (1.0f - state_.eyelid_bottom);
   
-  // Apply blink effect (shrink pupil vertically)
-  int pupil_size = eye_size_ / 4;
-  float blink_factor = 1.0f;
-  
-  if (state_.is_blinking) {
-    // Blink progress goes from 0 to 255, where 127-128 is fully closed
-    float progress = state_.blink_progress / 255.0f;
-    
-    // Make blink smooth: 0->1->0 over the duration
-    float eased = std::abs(std::sin(progress * 3.14159f));
-    blink_factor = 1.0f - (eased * 0.9f);  // Keep slight opening
+  // Draw top eyelid (black bar covering from top)
+  if (state_.eyelid_top < 1.0f) {
+    display_->filled_rectangle(eye.center_x - eye.width / 2,
+                              eye.center_y - eye.height / 2,
+                              eye.width,
+                              (int)eyelid_top_pos,
+                              display::COLOR_OFF);
   }
   
-  int pupil_height = pupil_size * blink_factor;
+  // Draw bottom eyelid (black bar covering from bottom)
+  if (state_.eyelid_bottom < 1.0f) {
+    int bottom_y = eye.center_y + eye.height / 2 - (int)eyelid_bottom_pos;
+    display_->filled_rectangle(eye.center_x - eye.width / 2,
+                              bottom_y,
+                              eye.width,
+                              (int)eyelid_bottom_pos,
+                              display::COLOR_OFF);
+  }
   
-  // Draw pupil
-  if (pupil_height > 1) {
-    display_->filled_circle(pupil_x, pupil_y, pupil_x > center_x ? pupil_size / 2 : pupil_size / 2, 
-                           display::COLOR_OFF);
+  // Calculate pupil position based on look direction
+  int pupil_x = eye.center_x + (state_.look_x * (eye.width / 3));
+  int pupil_y = eye.center_y + (state_.look_y * (eye.height / 3));
+  
+  // Draw pupil (small circle)
+  int pupil_radius = eye.width / 8;
+  if (pupil_radius > 1) {
+    display_->filled_circle(pupil_x, pupil_y, pupil_radius, display::COLOR_OFF);
   }
 }
 
@@ -171,19 +185,13 @@ void AnimEyes::draw_eyes() {
     return;
   }
   
-  // Get display dimensions
-  uint16_t display_width = display_->get_width();
-  uint16_t display_height = display_->get_height();
+  // Calculate eye positions and shapes
+  EyeShape left_eye = calculate_left_eye_shape_();
+  EyeShape right_eye = calculate_right_eye_shape_();
   
-  // Calculate eye positions
-  EyePosition left_eye = calculate_eye_center_(true);
-  EyePosition right_eye = calculate_eye_center_(false);
-  
-  // Draw left eye
-  draw_eye_(left_eye.x, left_eye.y);
-  
-  // Draw right eye
-  draw_eye_(right_eye.x, right_eye.y);
+  // Draw both eyes
+  draw_eye_(left_eye);
+  draw_eye_(right_eye);
 }
 
 void AnimEyes::clear_display() {
@@ -229,8 +237,17 @@ void AnimEyes::update_blink_() {
   if (elapsed >= BLINK_DURATION) {
     state_.is_blinking = false;
     state_.blink_progress = 0;
+    state_.eyelid_top = 1.0f;
+    state_.eyelid_bottom = 1.0f;
   } else {
-    // Calculate blink progress (0-255, where 127-128 is fully closed)
+    // Calculate blink progress (0-1, where 0.5 is fully closed)
+    float progress = elapsed / (float)BLINK_DURATION;
+    
+    // Make eyelids close smoothly: 1->0->1 over the duration (sine wave)
+    float eyelid_open = std::abs(std::cos(progress * 3.14159f));
+    state_.eyelid_top = eyelid_open;
+    state_.eyelid_bottom = eyelid_open;
+    
     state_.blink_progress = (elapsed * 255) / BLINK_DURATION;
   }
 }
@@ -270,21 +287,58 @@ Emotion *AnimEyes::get_random_emotion_() {
   return &emotions_.back();
 }
 
-EyePosition AnimEyes::calculate_eye_center_(bool is_left) {
+EyeShape AnimEyes::calculate_left_eye_shape_() {
   uint16_t display_width = display_->get_width();
   uint16_t display_height = display_->get_height();
   
-  EyePosition pos;
+  EyeShape eye;
+  eye.center_x = (display_width / 4);  // Left quarter of display
+  eye.center_y = (display_height / 2);
+  eye.width = eye_size_;
+  eye.height = eye_size_;
+  eye.border_radius = eye_size_ / 6;  // Rounded corners
   
-  if (is_left) {
-    pos.x = (display_width / 2 - eye_distance_) / 2;
-  } else {
-    pos.x = (display_width / 2 + eye_distance_) + (display_width / 2 - eye_distance_) / 2;
+  return eye;
+}
+
+EyeShape AnimEyes::calculate_right_eye_shape_() {
+  uint16_t display_width = display_->get_width();
+  uint16_t display_height = display_->get_height();
+  
+  EyeShape eye;
+  eye.center_x = (3 * display_width / 4);  // Right quarter of display
+  eye.center_y = (display_height / 2);
+  eye.width = eye_size_;
+  eye.height = eye_size_;
+  eye.border_radius = eye_size_ / 6;  // Rounded corners
+  
+  return eye;
+}
+
+void AnimEyes::draw_rounded_rectangle_(int x, int y, int w, int h, int radius, display::Color color, bool filled) {
+  if (!filled) {
+    // Draw outline with rounded corners (simple approach with rectangles and circles)
+    display_->rectangle(x, y, w, h, color);
+    return;
   }
   
-  pos.y = display_height / 2;
-  
-  return pos;
+  // Draw filled rounded rectangle
+  // This is a simplified version using filled rectangle in the middle
+  // and filled circles at corners
+  if (radius > 0) {
+    // Main body rectangle
+    display_->filled_rectangle(x + radius, y, w - 2 * radius, h, color);
+    display_->filled_rectangle(x, y + radius, w, h - 2 * radius, color);
+    
+    // Four corner circles to create rounded effect
+    display_->filled_circle(x + radius, y + radius, radius, color);
+    display_->filled_circle(x + w - radius, y + radius, radius, color);
+    display_->filled_circle(x + radius, y + h - radius, radius, color);
+    display_->filled_circle(x + w - radius, y + h - radius, radius, color);
+  } else {
+    // No rounding, just a filled rectangle
+    display_->filled_rectangle(x, y, w, h, color);
+  }
 }
 
 }  // namespace anim_eyes

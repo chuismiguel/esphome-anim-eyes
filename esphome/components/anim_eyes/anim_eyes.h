@@ -19,18 +19,23 @@ struct Emotion {
   Emotion(const std::string &name, float weight) : name(name), weight(weight) {}
 };
 
-// Eye position structure
-struct EyePosition {
-  int x;
-  int y;
+// Eye shape structure for rectangular eyes
+struct EyeShape {
+  int center_x;
+  int center_y;
+  int width;
+  int height;
+  int border_radius;
 };
 
-// Animation state for eye movement
+// Animation state for eye movement and expression
 struct AnimationState {
-  float look_x;
-  float look_y;
+  float look_x;           // Pupil horizontal position (-1.0 to 1.0)
+  float look_y;           // Pupil vertical position (-1.0 to 1.0)
   bool is_blinking;
   uint8_t blink_progress;  // 0-255 for smooth blink animation
+  float eyelid_top;       // Top eyelid position (0.0 to 1.0, where 1.0 is fully open)
+  float eyelid_bottom;    // Bottom eyelid position (0.0 to 1.0, where 1.0 is fully open)
   uint32_t last_blink_time;
   uint32_t last_look_time;
   uint32_t last_behavior_time;
@@ -87,7 +92,7 @@ class AnimEyes : public Component {
   void trigger_behavior_change();
   
   // Drawing methods
-  void draw_eye_(int center_x, int center_y);
+  void draw_eye_(const EyeShape &eye);
   void draw_eyes();
   void clear_display();
   
@@ -121,14 +126,16 @@ class AnimEyes : public Component {
   std::string current_emotion_{"normal"};
   
   // Animation state
-  AnimationState state_{0.0f, 0.0f, false, 0, 0, 0, 0};
+  AnimationState state_{0.0f, 0.0f, false, 0, 1.0f, 1.0f, 0, 0, 0};
   
   // Internal helper methods
   void update_animation_state_();
   void calculate_look_direction_();
   void update_blink_();
   Emotion *get_random_emotion_();
-  EyePosition calculate_eye_center_(bool is_left);
+  EyeShape calculate_left_eye_shape_();
+  EyeShape calculate_right_eye_shape_();
+  void draw_rounded_rectangle_(int x, int y, int w, int h, int radius, display::Color color, bool filled);
 };
 
 }  // namespace anim_eyes

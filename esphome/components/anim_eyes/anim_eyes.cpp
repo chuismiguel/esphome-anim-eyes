@@ -136,6 +136,41 @@ void AnimEyes::trigger_behavior_change() {
   }
 }
 
+
+void AnimEyes::draw_eye_(int center_x, int center_y) {
+  if (display_ == nullptr) {
+    return;
+  }
+  
+  // Draw eye white (circle)
+  display_->filled_circle(center_x, center_y, eye_size_ / 2, display::COLOR_ON);
+  
+  // Calculate pupil position based on look direction
+  int pupil_x = center_x + (state_.look_x * (eye_size_ / 4));
+  int pupil_y = center_y + (state_.look_y * (eye_size_ / 4));
+  
+  // Apply blink effect (shrink pupil vertically)
+  int pupil_size = eye_size_ / 4;
+  float blink_factor = 1.0f;
+  
+  if (state_.is_blinking) {
+    // Blink progress goes from 0 to 255, where 127-128 is fully closed
+    float progress = state_.blink_progress / 255.0f;
+    
+    // Make blink smooth: 0->1->0 over the duration
+    float eased = std::abs(std::sin(progress * 3.14159f));
+    blink_factor = 1.0f - (eased * 0.9f);  // Keep slight opening
+  }
+  
+  int pupil_height = pupil_size * blink_factor;
+  
+  // Draw pupil
+  if (pupil_height > 1) {
+    display_->filled_circle(pupil_x, pupil_y, pupil_x > center_x ? pupil_size / 2 : pupil_size / 2, 
+                           display::COLOR_OFF);
+  }
+}
+
 void AnimEyes::draw_eyes() {
   if (display_ == nullptr) {
     return;
@@ -193,7 +228,7 @@ void AnimEyes::update_animation_state_() {
 }
 
 void AnimEyes::update_blink_() {
-  uint32_t now = millis();
+  uint32_t now = esp_timer_get_time() / 1000;  // Convert microseconds to milliseconds
   uint32_t elapsed = now - state_.last_blink_time;
   
   if (elapsed >= BLINK_DURATION) {
@@ -255,40 +290,6 @@ EyePosition AnimEyes::calculate_eye_center_(bool is_left) {
   pos.y = display_height / 2;
   
   return pos;
-}
-
-void AnimEyes::draw_eye_(int center_x, int center_y) {
-  if (display_ == nullptr) {
-    return;
-  }
-  
-  // Draw eye white (circle)
-  display_->filled_circle(center_x, center_y, eye_size_ / 2, display::COLOR_ON);
-  
-  // Calculate pupil position based on look direction
-  int pupil_x = center_x + (state_.look_x * (eye_size_ / 4));
-  int pupil_y = center_y + (state_.look_y * (eye_size_ / 4));
-  
-  // Apply blink effect (shrink pupil vertically)
-  int pupil_size = eye_size_ / 4;
-  float blink_factor = 1.0f;
-  
-  if (state_.is_blinking) {
-    // Blink progress goes from 0 to 255, where 127-128 is fully closed
-    float progress = state_.blink_progress / 255.0f;
-    
-    // Make blink smooth: 0->1->0 over the duration
-    float eased = std::abs(std::sin(progress * 3.14159f));
-    blink_factor = 1.0f - (eased * 0.9f);  // Keep slight opening
-  }
-  
-  int pupil_height = pupil_size * blink_factor;
-  
-  // Draw pupil
-  if (pupil_height > 1) {
-    display_->filled_circle(pupil_x, pupil_y, pupil_x > center_x ? pupil_size / 2 : pupil_size / 2, 
-                           display::COLOR_OFF);
-  }
 }
 
 }  // namespace anim_eyes

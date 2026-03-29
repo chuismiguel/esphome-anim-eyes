@@ -88,6 +88,7 @@ class AnimEyes : public Component {
   void trigger_behavior_change();
   
   // Drawing methods
+  void draw_eye_(int center_x, int center_y);
   void draw_eyes();
   void clear_display();
   

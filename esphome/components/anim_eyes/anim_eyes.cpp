@@ -3,6 +3,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
+#include "esp_random.h"
+#include "esp_timer.h"
 
 namespace esphome {
 namespace anim_eyes {
@@ -50,7 +52,7 @@ void AnimEyes::update() {
     return;
   }
   
-  uint32_t now = millis();
+  uint32_t now = esp_timer_get_time() / 1000;  // Convert microseconds to milliseconds
   
   // Check if it's time to update (respecting update_interval_ms)
   if (now - last_update_time_ < update_interval_ms_) {
@@ -110,7 +112,7 @@ void AnimEyes::trigger_blink() {
   if (!state_.is_blinking) {
     state_.is_blinking = true;
     state_.blink_progress = 0;
-    state_.last_blink_time = millis();
+    state_.last_blink_time = esp_timer_get_time() / 1000;  // Convert to milliseconds
     ESP_LOGV(TAG, "Blink triggered");
   }
 }
@@ -118,7 +120,7 @@ void AnimEyes::trigger_blink() {
 void AnimEyes::trigger_look() {
   if (random_look_) {
     calculate_look_direction_();
-    state_.last_look_time = millis();
+    state_.last_look_time = esp_timer_get_time() / 1000;  // Convert to milliseconds
     ESP_LOGV(TAG, "Look triggered");
   }
 }
@@ -129,7 +131,7 @@ void AnimEyes::trigger_behavior_change() {
     if (emotion != nullptr) {
       set_current_emotion(emotion->name);
     }
-    state_.last_behavior_time = millis();
+    state_.last_behavior_time = esp_timer_get_time() / 1000;  // Convert to milliseconds
     ESP_LOGV(TAG, "Behavior changed");
   }
 }
@@ -161,7 +163,7 @@ void AnimEyes::clear_display() {
 }
 
 void AnimEyes::update_animation_state_() {
-  uint32_t now = millis();
+  uint32_t now = esp_timer_get_time() / 1000;  // Convert microseconds to milliseconds
   
   // Update blink
   if (state_.is_blinking) {
@@ -170,21 +172,21 @@ void AnimEyes::update_animation_state_() {
   
   // Trigger blink randomly or at interval
   if (random_blink_ && (now - state_.last_blink_time >= blink_interval_ms_)) {
-    if (rand() % 100 < 30) {  // 30% chance to blink
+    if ((esp_random() % 100) < 30) {  // 30% chance to blink
       trigger_blink();
     }
   }
   
   // Trigger look randomly or at interval
   if (random_look_ && (now - state_.last_look_time >= look_interval_ms_)) {
-    if (rand() % 100 < 40) {  // 40% chance to look around
+    if ((esp_random() % 100) < 40) {  // 40% chance to look around
       trigger_look();
     }
   }
   
   // Trigger behavior change randomly or at interval
   if (random_behavior_ && (now - state_.last_behavior_time >= behavior_interval_ms_)) {
-    if (rand() % 100 < 50) {  // 50% chance to change emotion
+    if ((esp_random() % 100) < 50) {  // 50% chance to change emotion
       trigger_behavior_change();
     }
   }
@@ -206,8 +208,8 @@ void AnimEyes::update_blink_() {
 void AnimEyes::calculate_look_direction_() {
   // Generate random look direction
   // Range: -1.0 to 1.0 for both x and y
-  state_.look_x = (rand() % 200 - 100) / 100.0f;
-  state_.look_y = (rand() % 200 - 100) / 100.0f;
+  state_.look_x = ((esp_random() % 200) - 100) / 100.0f;
+  state_.look_y = ((esp_random() % 200) - 100) / 100.0f;
   
   // Clamp to valid range
   state_.look_x = std::max(-1.0f, std::min(1.0f, state_.look_x));
@@ -225,7 +227,7 @@ Emotion *AnimEyes::get_random_emotion_() {
     total_weight += emotion.weight;
   }
   
-  float random_value = (rand() % 10000) / 10000.0f * total_weight;
+  float random_value = ((esp_random() % 10000) / 10000.0f) * total_weight;
   float accumulated = 0.0f;
   
   for (auto &emotion : emotions_) {

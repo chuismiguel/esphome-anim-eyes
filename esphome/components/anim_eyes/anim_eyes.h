@@ -5,6 +5,8 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <cstdint>
+#include "esp_timer.h"
 
 namespace esphome {
 namespace anim_eyes {
